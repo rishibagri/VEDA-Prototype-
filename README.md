@@ -1,5 +1,7 @@
 # Veda - Panic Response App (MVP)
 
+An app that automatically detects panic attacks based on data retrieved from your smart wearables and helps you through the panic attack through box breathing and grounding techniques.
+
 This is a functional MVP of **Veda**, designed to run on **Expo (iOS/Android/Web)**. 
 It simulates the Apple Watch experience of a panic response flow.
 

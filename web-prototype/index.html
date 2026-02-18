@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VEDA — Panic Response App</title>
+  <meta name="description"
+    content="VEDA: An automatic panic-attack first-response app for Apple Watch. Guided breathing, grounding, and cognitive reassurance in under 2 minutes." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet" />
+  <style>
+    /* ===== RESET & GLOBALS ===== */
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-deep: #060B18;
+      --bg-surface: #0F172A;
+      --bg-card: #1E293B;
+      --primary: #38BDF8;
+      --secondary: #34D399;
+      --accent: #818CF8;
+      --danger: #F87171;
+      --danger-glow: rgba(248, 113, 113, 0.4);
+      --success: #4ADE80;
+      --text: #F8FAFC;
+      --subtext: #94A3B8;
+      --muted: #475569;
+      --glass: rgba(30, 41, 59, 0.6);
+      --glass-border: rgba(148, 163, 184, 0.12);
+      --radius: 24px;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    html {
+      font-size: 16px;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-deep);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== BACKGROUND AMBIENT GLOW ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      left: -20%;
+      width: 80vw;
+      height: 80vw;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      right: -20%;
+      width: 70vw;
+      height: 70vw;
+      background: radial-gradient(circle, rgba(129, 140, 248, 0.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===== LAYOUT ===== */
+    .app-wrapper {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      width: 100%;
+      padding: 32px 40px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--bg-deep);
+    }
+
+    .logo-text {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--text), var(--subtext));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .voice-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 100px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(12px);
+      font-size: 13px;
+      color: var(--subtext);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .voice-badge:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .voice-badge.active {
+      border-color: var(--secondary);
+      color: var(--secondary);
+    }
+
+    .voice-badge.active .voice-dot {
+      background: var(--secondary);
+      box-shadow: 0 0 8px var(--secondary);
+    }
+
+    .voice-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: all 0.3s ease;
+    }
+
+    /* ===== MAIN STAGE ===== */
+    .main-stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    /* ===== PHONE FRAME ===== */
+    .phone-frame {
+      position: relative;
+      width: 340px;
+      height: 680px;
+      border-radius: 48px;
+      background: var(--bg-surface);
+      border: 2px solid var(--glass-border);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        0 25px 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .phone-notch {
+      width: 120px;
+      height: 28px;
+      background: var(--bg-deep);
+      border-radius: 0 0 16px 16px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 10;
+    }
+
+    .phone-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .phone-home-bar {
+      width: 120px;
+      height: 5px;
+      background: var(--muted);
+      border-radius: 3px;
+      margin: 12px auto;
+      opacity: 0.5;
+    }
+
+    /* ===== SCREEN TRANSITIONS ===== */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 24px;
+      opacity: 0;
+      transform: scale(0.95);
+      transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+
+    .screen.active {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    /* ===== SCREEN: HOME / SOS ===== */
+    .home-title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--text) 0%, var(--subtext) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .home-subtitle {
+      font-size: 14px;
+      color: var(--subtext);
+      margin-bottom: 48px;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .sos-button-wrapper {
+      position: relative;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .sos-pulse-ring {
+      position: absolute;
+      inset: -20px;
+      border-radius: 50%;
+      border: 2px solid var(--danger);
+      opacity: 0;
+      animation: sosPulse 2s ease-out infinite;
+    }
+
+    .sos-pulse-ring:nth-child(2) {
+      animation-delay: 0.6s;
+    }
+
+    .sos-pulse-ring:nth-child(3) {
+      animation-delay: 1.2s;
+    }
+
+    @keyframes sosPulse {
+      0% {
+        transform: scale(0.8);
+        opacity: 0.6;
+      }
+
+      100% {
+        transform: scale(1.6);
+        opacity: 0;
+      }
+    }
+
+    .sos-button {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #EF4444, #DC2626);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: #fff;
+      border: 3px solid rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 0 40px var(--danger-glow),
+        0 8px 32px rgba(239, 68, 68, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.15);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+      z-index: 2;
+    }
+
+    .sos-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 60px var(--danger-glow), 0 12px 40px rgba(239, 68, 68, 0.4);
+    }
+
+    .sos-button:active {
+      transform: scale(0.95);
+    }
+
+    .home-hint {
+      margin-top: 40px;
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .home-voice-hint {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--accent);
+      opacity: 0.7;
+    }
+
+    /* ===== SCREEN: BREATHING ===== */
+    .breath-label {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .breath-sublabel {
+      font-size: 16px;
+      color: var(--subtext);
+      margin-bottom: 50px;
+    }
+
+    .breath-circle-wrapper {
+      position: relative;
+      width: 140px;
+      height: 140px;
+    }
+
+    .breath-circle {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      opacity: 0.5;
+      animation: breatheAnim 10s ease-in-out infinite;
+    }
+
+    .breath-glow {
+      position: absolute;
+      inset: -30px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 70%);
+      animation: breatheAnim 10s ease-in-out infinite;
+    }
+
+    @keyframes breatheAnim {
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 0.5;
+      }
+
+      40% {
+        transform: scale(2.2);
+        opacity: 0.8;
+      }
+    }
+
+    .breath-instruction {
+      margin-top: 48px;
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--primary);
+      min-height: 28px;
+      transition: opacity 0.5s ease;
+    }
+
+    .breath-timer {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .breath-progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--bg-card);
+    }
+
+    .breath-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      width: 0%;
+      transition: width 0.5s linear;
+    }
+
+    /* ===== SCREEN: GROUNDING ===== */
+    .ground-title {
+      font-size: 22px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 32px;
+      line-height: 1.3;
+    }
+
+    .ground-items {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 32px;
+      width: 100%;
+    }
+
+    .ground-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border-radius: 16px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .ground-item:hover {
+      border-color: var(--primary);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .ground-item.checked {
+      border-color: var(--secondary);
+      background: rgba(52, 211, 153, 0.08);
+    }
+
+    .ground-item.checked .ground-check {
+      background: var(--secondary);
+      border-color: var(--secondary);
+    }
+
+    .ground-item.checked .ground-check::after {
+      opacity: 1;
+    }
+
+    .ground-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+
+    .ground-text {
+      flex: 1;
+    }
+
+    .ground-label {
+      font-size: 15px;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .ground-sublabel {
+      font-size: 12px;
+      color: var(--subtext);
+      margin-top: 2px;
+    }
+
+    .ground-check {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid var(--muted);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .ground-check::after {
+      content: '✓';
+      color: var(--bg-deep);
+      font-size: 14px;
+      font-weight: 700;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .tap-btn {
+      width: 100%;
+      padding: 18px;
+      border-radius: 60px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      color: var(--secondary);
+      font-size: 16px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      backdrop-filter: blur(8px);
+    }
+
+    .tap-btn:hover {
+      border-color: var(--secondary);
+      background: rgba(52, 211, 153, 0.08);
+    }
+
+    .tap-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* ===== SCREEN: AFFIRMATION ===== */
+    .affirm-text {
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.4;
+      letter-spacing: -0.5px;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 1s ease;
+    }
+
+    .affirm-text.visible {
+      opacity: 1;
+    }
+
+    .affirm-progress {
+      display: flex;
+      gap: 8px;
+      margin-top: 40px;
+    }
+
+    .affirm-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.4s ease;
+    }
+
+    .affirm-dot.active {
+      background: var(--accent);
+    }
+
+    /* ===== SCREEN: EXIT ===== */
+    .exit-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 28px;
+    }
+
+    .exit-btn {
+      width: 100%;
+      padding: 18px;
+      border-radius: 60px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.3s ease;
+      margin-bottom: 12px;
+    }
+
+    .exit-btn:active {
+      transform: scale(0.97);
+    }
+
+    .exit-btn-primary {
+      background: linear-gradient(135deg, var(--success), #22C55E);
+      color: var(--bg-deep);
+      box-shadow: 0 8px 24px rgba(74, 222, 128, 0.25);
+    }
+
+    .exit-btn-primary:hover {
+      box-shadow: 0 12px 32px rgba(74, 222, 128, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .exit-btn-secondary {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      color: var(--primary);
+      backdrop-filter: blur(8px);
+    }
+
+    .exit-btn-secondary:hover {
+      border-color: var(--primary);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .exit-btn-alert {
+      background: var(--glass);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      color: var(--danger);
+      backdrop-filter: blur(8px);
+    }
+
+    .exit-btn-alert:hover {
+      border-color: var(--danger);
+      background: rgba(248, 113, 113, 0.08);
+    }
+
+    .exit-emoji {
+      font-size: 22px;
+    }
+
+    /* ===== CONTACT SENT TOAST ===== */
+    .contact-sent {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      padding: 24px 32px;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--secondary);
+      backdrop-filter: blur(16px);
+      text-align: center;
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .contact-sent.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+      pointer-events: auto;
+    }
+
+    .contact-sent-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
+
+    .contact-sent-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .contact-sent-sub {
+      font-size: 13px;
+      color: var(--subtext);
+      line-height: 1.4;
+    }
+
+    /* ===== FEATURE CARDS BELOW ===== */
+    .features-section {
+      width: 100%;
+      max-width: 900px;
+      padding: 60px 24px 80px;
+    }
+
+    .features-title {
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      padding: 24px;
+      border-radius: 20px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(12px);
+      transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(148, 163, 184, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 14px;
+    }
+
+    .feature-name {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--subtext);
+      line-height: 1.5;
+    }
+
+    /* ===== VOICE OVERLAY ===== */
+    .voice-overlay {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: 100px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(16px);
+      font-size: 14px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      transform: translateX(-50%) translateY(20px);
+    }
+
+    .voice-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .voice-wave {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 16px;
+    }
+
+    .voice-wave span {
+      width: 3px;
+      background: var(--secondary);
+      border-radius: 2px;
+      animation: voiceWave 1s ease-in-out infinite;
+    }
+
+    .voice-wave span:nth-child(1) {
+      height: 8px;
+      animation-delay: 0s;
+    }
+
+    .voice-wave span:nth-child(2) {
+      height: 14px;
+      animation-delay: 0.15s;
+    }
+
+    .voice-wave span:nth-child(3) {
+      height: 10px;
+      animation-delay: 0.3s;
+    }
+
+    .voice-wave span:nth-child(4) {
+      height: 16px;
+      animation-delay: 0.45s;
+    }
+
+    .voice-wave span:nth-child(5) {
+      height: 6px;
+      animation-delay: 0.6s;
+    }
+
+    @keyframes voiceWave {
+
+      0%,
+      100% {
+        transform: scaleY(0.5);
+      }
+
+      50% {
+        transform: scaleY(1);
+      }
+    }
+
+    /* ===== STAGE INDICATOR ===== */
+    .stage-bar {
+      position: absolute;
+      top: 12px;
+      left: 24px;
+      right: 24px;
+      display: flex;
+      gap: 6px;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .stage-bar.visible {
+      opacity: 1;
+    }
+
+    .stage-pip {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--bg-card);
+      transition: background 0.5s ease;
+    }
+
+    .stage-pip.done {
+      background: var(--secondary);
+    }
+
+    .stage-pip.current {
+      background: var(--primary);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 500px) {
+      .phone-frame {
+        width: 300px;
+        height: 600px;
+        border-radius: 40px;
+      }
+
+      .header {
+        padding: 20px 16px 0;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ===== VOICE COMMAND TOAST ===== */
+    .voice-toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-80px);
+      padding: 12px 24px;
+      border-radius: 16px;
+      background: rgba(52, 211, 153, 0.12);
+      border: 1px solid var(--secondary);
+      color: var(--secondary);
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 200;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .voice-toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ===== SPEECH BUBBLE ===== */
+    .voice-transcript {
+      position: absolute;
+      bottom: 16px;
+      left: 20px;
+      right: 20px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      background: rgba(129, 140, 248, 0.1);
+      border: 1px solid rgba(129, 140, 248, 0.2);
+      font-size: 12px;
+      color: var(--accent);
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 10;
+    }
+
+    .voice-transcript.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-wrapper">
+    <!-- HEADER -->
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">V</div>
+        <span class="logo-text">VEDA</span>
+      </div>
+      <button class="voice-badge" id="voiceToggle" onclick="toggleVoice()">
+        <span class="voice-dot" id="voiceDot"></span>
+        <span id="voiceLabel">Voice: Off</span>
+      </button>
+    </header>
+
+    <!-- MAIN -->
+    <main class="main-stage">
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+
+        <div class="phone-screen" id="phoneScreen">
+          <!-- Stage progress bar -->
+          <div class="stage-bar" id="stageBar">
+            <div class="stage-pip" id="pip0"></div>
+            <div class="stage-pip" id="pip1"></div>
+            <div class="stage-pip" id="pip2"></div>
+            <div class="stage-pip" id="pip3"></div>
+          </div>
+
+          <!-- SCREEN 0: HOME / SOS -->
+          <div class="screen active" id="screen-home">
+            <div class="home-title">VEDA</div>
+            <div class="home-subtitle">Panic response when<br />you need it most.</div>
+            <div class="sos-button-wrapper" onclick="startPanicFlow()">
+              <div class="sos-pulse-ring"></div>
+              <div class="sos-pulse-ring"></div>
+              <div class="sos-pulse-ring"></div>
+              <div class="sos-button" id="sosButton">SOS</div>
+            </div>
+            <div class="home-hint">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4M12 8h.01" />
+              </svg>
+              Tap for immediate help
+            </div>
+            <div class="home-voice-hint" id="voiceHintHome">Say "Help" or "SOS" to activate</div>
+          </div>
+
+          <!-- SCREEN 1: BREATHING -->
+          <div class="screen" id="screen-breathing">
+            <div class="breath-label">You're safe.</div>
+            <div class="breath-sublabel">Breathe with me.</div>
+            <div class="breath-circle-wrapper">
+              <div class="breath-glow"></div>
+              <div class="breath-circle" id="breathCircle"></div>
+            </div>
+            <div class="breath-instruction" id="breathInstruction">Inhale...</div>
+            <div class="breath-timer" id="breathTimer">30s remaining</div>
+            <div class="breath-progress-bar">
+              <div class="breath-progress-fill" id="breathProgress"></div>
+            </div>
+          </div>
+
+          <!-- SCREEN 2: GROUNDING -->
+          <div class="screen" id="screen-grounding">
+            <div class="ground-title">Try these to<br />ground yourself.</div>
+            <div class="ground-items">
+              <div class="ground-item" onclick="toggleCheck(this)">
+                <div class="ground-icon">💧</div>
+                <div class="ground-text">
+                  <div class="ground-label">Cold water on wrist</div>
+                  <div class="ground-sublabel">Run cold water over your wrists</div>
+                </div>
+                <div class="ground-check"></div>
+              </div>
+              <div class="ground-item" onclick="toggleCheck(this)">
+                <div class="ground-icon">🤲</div>
+                <div class="ground-text">
+                  <div class="ground-label">Splash face</div>
+                  <div class="ground-sublabel">Splash cold water on your face</div>
+                </div>
+                <div class="ground-check"></div>
+              </div>
+            </div>
+            <button class="tap-btn" onclick="nextStage()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              Done
+            </button>
+          </div>
+
+          <!-- SCREEN 3: AFFIRMATION -->
+          <div class="screen" id="screen-affirmation">
+            <div class="affirm-text" id="affirmText"></div>
+            <div class="affirm-progress" id="affirmDots"></div>
+          </div>
+
+          <!-- SCREEN 4: EXIT -->
+          <div class="screen" id="screen-exit">
+            <div class="exit-title">How do you feel?</div>
+            <button class="exit-btn exit-btn-primary" onclick="exitFlow()">
+              <span class="exit-emoji">✨</span>
+              I feel better
+            </button>
+            <button class="exit-btn exit-btn-secondary" onclick="repeatFlow()">
+              <span class="exit-emoji">🔄</span>
+              Continue calming
+            </button>
+            <button class="exit-btn exit-btn-alert" onclick="alertContact()">
+              <span class="exit-emoji">🆘</span>
+              Message my contact
+            </button>
+          </div>
+
+          <!-- Contact sent overlay -->
+          <div class="contact-sent" id="contactSent">
+            <div class="contact-sent-icon">💌</div>
+            <div class="contact-sent-title">Message Sent</div>
+            <div class="contact-sent-sub">Your closest contact has been<br />notified that you need support.</div>
+          </div>
+
+          <!-- Voice transcript display -->
+          <div class="voice-transcript" id="voiceTranscript"></div>
+        </div>
+
+        <div class="phone-home-bar"></div>
+      </div>
+    </main>
+
+    <!-- FEATURES -->
+    <section class="features-section">
+      <div class="features-title">MVP Feature Highlights</div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <div class="feature-name">Auto Triggering</div>
+          <div class="feature-desc">Launches automatically via heart rate spike, fall detection, or manual SOS press.
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🫁</div>
+          <div class="feature-name">Guided Breathing</div>
+          <div class="feature-desc">Evidence-based 4s inhale / 6s exhale cycle with visual and haptic guidance.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎙️</div>
+          <div class="feature-name">Voice Activation</div>
+          <div class="feature-desc">Say "Help", "SOS", or "Panic" to activate. Say "Next" to navigate. Fully hands-free.
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🆘</div>
+          <div class="feature-name">Emergency Contact</div>
+          <div class="feature-desc">Instantly send a pre-written support message to your closest contact with one tap.
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💧</div>
+          <div class="feature-name">Physical Grounding</div>
+          <div class="feature-desc">Guided prompts for cold water on wrists and face splashing — proven sensory reset
+            techniques.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <div class="feature-name">Privacy-First</div>
+          <div class="feature-desc">No ads, no tracking, no data sharing. All session data stored locally on device.
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- VOICE OVERLAY -->
+  <div class="voice-overlay" id="voiceOverlay">
+    <div class="voice-wave">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <span id="voiceOverlayText">Listening...</span>
+  </div>
+
+  <!-- VOICE TOAST -->
+  <div class="voice-toast" id="voiceToast"></div>
+
+  <script>
+    // ===== STATE =====
+    let currentStage = -1; // -1 = home
+    const STAGES = ['breathing', 'grounding', 'affirmation', 'exit'];
+    const AFFIRMATIONS = [
+      "This will pass.",
+      "Your body is reacting,\nnot failing.",
+      "You are in control.",
+      "You've survived\nevery panic before.",
+      "Breathe. You're okay."
+    ];
+
+    let breathInterval = null;
+    let breathTimeout = null;
+    let affirmTimeout = null;
+    let voiceEnabled = false;
+    let recognition = null;
+
+    // ===== SCREEN MANAGEMENT =====
+    function showScreen(name) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const target = document.getElementById('screen-' + name);
+      if (target) target.classList.add('active');
+    }
+
+    function updatePips() {
+      const bar = document.getElementById('stageBar');
+      bar.classList.toggle('visible', currentStage >= 0);
+      for (let i = 0; i < 4; i++) {
+        const pip = document.getElementById('pip' + i);
+        pip.classList.remove('done', 'current');
+        if (i < currentStage) pip.classList.add('done');
+        else if (i === currentStage) pip.classList.add('current');
+      }
+    }
+
+    // ===== PANIC FLOW =====
+    function startPanicFlow() {
+      currentStage = 0;
+      updatePips();
+      showScreen('breathing');
+      startBreathing();
+    }
+
+    function nextStage() {
+      cleanupCurrentStage();
+      currentStage++;
+      if (currentStage >= STAGES.length) {
+        exitFlow();
+        return;
+      }
+      updatePips();
+      showScreen(STAGES[currentStage]);
+
+      if (STAGES[currentStage] === 'breathing') startBreathing();
+      if (STAGES[currentStage] === 'affirmation') startAffirmations();
+    }
+
+    function cleanupCurrentStage() {
+      if (breathInterval) { clearInterval(breathInterval); breathInterval = null; }
+      if (breathTimeout) { clearTimeout(breathTimeout); breathTimeout = null; }
+      if (affirmTimeout) { clearTimeout(affirmTimeout); affirmTimeout = null; }
+    }
+
+    function exitFlow() {
+      cleanupCurrentStage();
+      currentStage = -1;
+      updatePips();
+      showScreen('home');
+    }
+
+    function repeatFlow() {
+      cleanupCurrentStage();
+      currentStage = 0;
+      updatePips();
+      showScreen('breathing');
+      startBreathing();
+    }
+
+    // ===== GROUNDING CHECKLIST =====
+    function toggleCheck(el) {
+      el.classList.toggle('checked');
+    }
+
+    // ===== EMERGENCY CONTACT =====
+    function alertContact() {
+      const overlay = document.getElementById('contactSent');
+      overlay.classList.add('show');
+      speak("Message sent to your closest contact.");
+      setTimeout(() => {
+        overlay.classList.remove('show');
+      }, 3000);
+    }
+
+    // ===== BREATHING =====
+    function startBreathing() {
+      const circle = document.getElementById('breathCircle');
+      const glow = circle.previousElementSibling;
+      const instruction = document.getElementById('breathInstruction');
+      const timer = document.getElementById('breathTimer');
+      const progress = document.getElementById('breathProgress');
+      const TOTAL = 30;
+      let elapsed = 0;
+      let isInhale = true;
+
+      // Use CSS animation approach
+      function setBreathPhase() {
+        if (isInhale) {
+          instruction.textContent = 'Inhale...';
+          instruction.style.color = 'var(--primary)';
+          circle.style.transition = 'transform 4s ease-in-out, opacity 4s ease-in-out';
+          circle.style.transform = 'scale(2.2)';
+          circle.style.opacity = '0.8';
+          glow.style.transition = 'transform 4s ease-in-out';
+          glow.style.transform = 'scale(2.2)';
+
+          // Speak on web
+          if (voiceEnabled && window.speechSynthesis) {
+            speak('Breathe in');
+          }
+        } else {
+          instruction.textContent = 'Exhale...';
+          instruction.style.color = 'var(--secondary)';
+          circle.style.transition = 'transform 6s ease-in-out, opacity 6s ease-in-out';
+          circle.style.transform = 'scale(1)';
+          circle.style.opacity = '0.5';
+          glow.style.transition = 'transform 6s ease-in-out';
+          glow.style.transform = 'scale(1)';
+
+          if (voiceEnabled && window.speechSynthesis) {
+            speak('Breathe out');
+          }
+        }
+      }
+
+      // Override CSS animation with JS-driven breath
+      circle.style.animation = 'none';
+      glow.style.animation = 'none';
+      circle.style.transform = 'scale(1)';
+      glow.style.transform = 'scale(1)';
+
+      setBreathPhase();
+      breathInterval = setInterval(() => {
+        elapsed++;
+        const remaining = TOTAL - elapsed;
+        timer.textContent = remaining + 's remaining';
+        progress.style.width = ((elapsed / TOTAL) * 100) + '%';
+
+        // Toggle every cycle: 4s inhale + 6s exhale = 10s
+        if (elapsed % 10 === 0) {
+          isInhale = true;
+          setBreathPhase();
+        } else if (elapsed % 10 === 4) {
+          isInhale = false;
+          setBreathPhase();
+        }
+
+        if (elapsed >= TOTAL) {
+          nextStage();
+        }
+      }, 1000);
+    }
+
+    // ===== AFFIRMATIONS =====
+    function startAffirmations() {
+      const textEl = document.getElementById('affirmText');
+      const dotsContainer = document.getElementById('affirmDots');
+      dotsContainer.innerHTML = '';
+      AFFIRMATIONS.forEach((_, i) => {
+        const dot = document.createElement('div');
+        dot.className = 'affirm-dot';
+        dot.id = 'affirmDot' + i;
+        dotsContainer.appendChild(dot);
+      });
+
+      let idx = 0;
+
+      function showAffirmation() {
+        textEl.classList.remove('visible');
+        setTimeout(() => {
+          textEl.textContent = AFFIRMATIONS[idx];
+          textEl.classList.add('visible');
+          document.getElementById('affirmDot' + idx).classList.add('active');
+
+          if (voiceEnabled && window.speechSynthesis) {
+            speak(AFFIRMATIONS[idx].replace('\n', ' '));
+          }
+
+          idx++;
+          if (idx < AFFIRMATIONS.length) {
+            affirmTimeout = setTimeout(showAffirmation, 4000);
+          } else {
+            affirmTimeout = setTimeout(() => nextStage(), 4000);
+          }
+        }, 500);
+      }
+
+      showAffirmation();
+    }
+
+    // ===== VOICE DETECTION =====
+    function toggleVoice() {
+      voiceEnabled = !voiceEnabled;
+      const badge = document.getElementById('voiceToggle');
+      const label = document.getElementById('voiceLabel');
+      const hint = document.getElementById('voiceHintHome');
+      const overlay = document.getElementById('voiceOverlay');
+
+      if (voiceEnabled) {
+        badge.classList.add('active');
+        label.textContent = 'Voice: On';
+        hint.style.opacity = '1';
+        startVoiceRecognition();
+      } else {
+        badge.classList.remove('active');
+        label.textContent = 'Voice: Off';
+        hint.style.opacity = '0.7';
+        overlay.classList.remove('show');
+        stopVoiceRecognition();
+      }
+    }
+
+    function startVoiceRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        showVoiceToast('Voice not supported in this browser');
+        voiceEnabled = false;
+        document.getElementById('voiceToggle').classList.remove('active');
+        document.getElementById('voiceLabel').textContent = 'Voice: Off';
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        const display = finalTranscript || interimTranscript;
+        showTranscript(display);
+
+        const text = (finalTranscript || interimTranscript).toLowerCase().trim();
+
+        // Voice commands
+        if (text.includes('help') || text.includes('sos') || text.includes('panic')) {
+          if (currentStage === -1) {
+            showVoiceToast('🎙️ Voice detected: "' + text + '" — Activating...');
+            setTimeout(() => startPanicFlow(), 800);
+          }
+        }
+        if (text.includes('next') || text.includes('continue') || text.includes('done')) {
+          if (currentStage >= 0 && currentStage < STAGES.length) {
+            showVoiceToast('🎙️ Voice: "' + text + '" — Next step...');
+            setTimeout(() => nextStage(), 600);
+          }
+        }
+        if (text.includes('stop') || text.includes('better') || text.includes('exit')) {
+          if (currentStage >= 0) {
+            showVoiceToast('🎙️ Voice: "' + text + '" — Ending session.');
+            setTimeout(() => exitFlow(), 600);
+          }
+        }
+        if (text.includes('repeat') || text.includes('again') || text.includes('restart')) {
+          if (currentStage >= 0) {
+            showVoiceToast('🎙️ Voice: "' + text + '" — Restarting...');
+            setTimeout(() => repeatFlow(), 600);
+          }
+        }
+      };
+
+      recognition.onstart = () => {
+        document.getElementById('voiceOverlay').classList.add('show');
+        document.getElementById('voiceOverlayText').textContent = 'Listening...';
+      };
+
+      recognition.onend = () => {
+        // Restart if still enabled
+        if (voiceEnabled) {
+          try { recognition.start(); } catch (e) { }
+        } else {
+          document.getElementById('voiceOverlay').classList.remove('show');
+        }
+      };
+
+      recognition.onerror = (event) => {
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          console.log('Speech error:', event.error);
+        }
+      };
+
+      try { recognition.start(); } catch (e) { }
+    }
+
+    function stopVoiceRecognition() {
+      if (recognition) {
+        recognition.onend = null;
+        try { recognition.stop(); } catch (e) { }
+        recognition = null;
+      }
+    }
+
+    function showTranscript(text) {
+      const el = document.getElementById('voiceTranscript');
+      el.textContent = '🎙️ ' + text;
+      el.classList.add('show');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.remove('show'), 2000);
+    }
+
+    function showVoiceToast(msg) {
+      const toast = document.getElementById('voiceToast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // ===== TEXT-TO-SPEECH =====
+    function speak(text) {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 0.85;
+      utter.pitch = 0.9;
+      utter.volume = 0.7;
+      window.speechSynthesis.speak(utter);
+    }
+
+    // ===== INIT =====
+    updatePips();
+  </script>
+</body>
+
+</html>
